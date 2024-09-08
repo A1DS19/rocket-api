@@ -3,6 +3,17 @@ name = "rocket-app"
 version = "0.1.0"
 edition = "2021"
 
+[profile.release]
+opt-level = "z"            # Optimize for size while maintaining reasonable speed
+lto = true                 # Enable Link Time Optimization
+codegen-units = 1          # Single codegen unit for better optimization (at the cost of longer compile time)
+incremental = false        # Disable incremental compilation for release builds
+
+[profile.dev]
+codegen-units = 16    # Higher value to speed up compilation
+opt-level = 0         # Minimal optimizations, faster builds
+debug = true          # Enable debug info
+
 [dependencies]
 base64 = "0.22.1"
 rocket = {version = "0.5.1", features = ["json"]}
