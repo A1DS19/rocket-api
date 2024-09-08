@@ -2,18 +2,17 @@ mod auth;
 mod db_connection;
 mod dto;
 mod models;
+mod repositories;
 mod schema;
 mod user;
 
 use auth::AuthenticatedUser;
 use db_connection::DbConn;
-use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
 use dotenvy::dotenv;
 use dto::new_rustacean::NewRustacean;
-use models::rustacean::Rustacean;
+use repositories::{repository::Repository, rustacean_repository};
 use rocket::serde::json::Json;
-use schema::rustacean as rustacean_table;
-use schema::rustacean::dsl::rustacean;
+use rustacean_repository::RustaceanRepository;
 use serde_json::{json, Value};
 
 #[macro_use]
@@ -22,10 +21,7 @@ extern crate rocket;
 #[get("/")]
 async fn get_rustaceans(conn: DbConn) -> Value {
     conn.run(|c| {
-        let result = rustacean
-            .order(rustacean_table::id.desc())
-            .limit(1000)
-            .load::<Rustacean>(c);
+        let result = RustaceanRepository::find_many(c);
 
         match result {
             Ok(rustaceans) => {
@@ -49,9 +45,7 @@ async fn post_name(
     println!("Current user: {:?}", current_user);
 
     conn.run(|c| {
-        let result = diesel::insert_into(rustacean_table::table)
-            .values(user.into_inner())
-            .execute(c);
+        let result = RustaceanRepository::create(c, user.into_inner());
 
         match result {
             Ok(_) => {
