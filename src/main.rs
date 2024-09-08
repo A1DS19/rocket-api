@@ -11,25 +11,30 @@ use db_connection::DbConn;
 use dotenvy::dotenv;
 use dto::new_rustacean::NewRustacean;
 use repositories::{repository::Repository, rustacean_repository};
-use rocket::serde::json::Json;
+use rocket::{http::Status, response::status::Custom, serde::json::Json};
 use rustacean_repository::RustaceanRepository;
 use serde_json::{json, Value};
 
 #[macro_use]
 extern crate rocket;
 
+type RequestWithDataResult = Result<Custom<Json<Value>>, Custom<Json<Value>>>;
+type RequestWithoutDataResult = Result<Custom<()>, Custom<Json<Value>>>;
+
 #[get("/")]
-async fn get_rustaceans(conn: DbConn) -> Value {
+async fn get_rustaceans(conn: DbConn) -> RequestWithDataResult {
     conn.run(|c| {
         let result = RustaceanRepository::find_many(c);
 
         match result {
-            Ok(rustaceans) => {
-                json!(rustaceans)
-            }
+            Ok(rustaceans) => Ok(Custom(Status::Ok, Json(json!(rustaceans)))),
+
             Err(error) => {
                 println!("Error loading rustaceans: {:?}", error);
-                json!({"error": "Error loading rustaceans"})
+                Err(Custom(
+                    Status::InternalServerError,
+                    Json(json!({"error": "Error loading rustaceans"})),
+                ))
             }
         }
     })
@@ -41,19 +46,21 @@ async fn post_name(
     current_user: AuthenticatedUser,
     user: Json<NewRustacean>,
     conn: DbConn,
-) -> Value {
-    println!("Current user: {:?}", current_user);
-
-    conn.run(|c| {
+) -> RequestWithoutDataResult {
+    conn.run(|c: &mut diesel::SqliteConnection| {
         let result = RustaceanRepository::create(c, user.into_inner());
 
         match result {
             Ok(_) => {
-                json!({"status": "ok"})
+                println!("New rustacean inserted");
+                Ok(Custom(Status::Created, ()))
             }
             Err(error) => {
                 println!("Error inserting new rustacean: {:?}", error);
-                json!({"error": "Error inserting new rustacean"})
+                Err(Custom(
+                    Status::InternalServerError,
+                    Json(json!({"error": "Error inserting new rustacean"})),
+                ))
             }
         }
     })
